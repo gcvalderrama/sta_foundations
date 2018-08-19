@@ -22,8 +22,16 @@ library(MASS)
 
 setwd("/Users/gregory/Documents/2018/corpus/")
 
+setwd("F:/2018/sta_foundations/Images")
 
 images <- read.csv(file= "data.csv", header=TRUE, sep=",")
+
+images$mark  <- as.factor(images$mark)
+
+# decide response variable and define his levels 
+
+levels(images$mark) <- c(1,2,3,4,5,6,7,8,9,10)
+
 
 cov(images)
 
@@ -31,68 +39,52 @@ cor(images)
 
 eigen(cor(images))
 
-
-
-
 head(images)
 
 str(images)
 
-describe(images)
+psych::describe(images)
+
+
+table(images$mark)
+hist(images$mark)
+boxplot(images$correlation)
+boxplot(images$intersection)
+boxplot(images$chisquare)
+boxplot(images$bhattacharyya)
 
 data_selected <- as.data.frame( select(images, -id, -mark))
-
-boxplot(data_selected$correlation)
-boxplot(data_selected$intersection)
-boxplot(data_selected$chisquare)
-boxplot(data_selected$bhattacharyya)
-
-boxplot.stats(data_selected$correlation)
 
 pr = prcomp(data_selected)
 summary(pr)
 
 biplot(pr)
 
-hist(data_selected$correlation)
-hist(data_selected$intersection)
-hist(data_selected$chisquare)
-hist(data_selected$bhattacharyya)
-
-
+data_selected <- as.data.frame( select(images, -id))
 ggpairs(data_selected) 
 
-reg = lm(mark~correlation+ intersection, data = images )
-
+reg = lm(mark ~ ., data = data_selected )
 summary(reg)
 
+# descicion three
 library(rpart)
 
-fit <- rpart(mark ~ correlation + intersection + chisquare + bhattacharyya,
-             method="class", data=images)
+fit <- rpart(mark ~ correlation + intersection + chisquare + bhattacharyya, method="class", data=images)
 
 printcp(fit) # display the results 
 plotcp(fit) # visualize cross-validation results 
 summary(fit) # detailed summary of splits
 
-plot(fit, uniform=TRUE, main="Classification Tree for Kyphosis")
+plot(fit, uniform=TRUE)
 text(fit, use.n=TRUE, all=TRUE, cex=.8)
 
-pred = predict(fit, type="class")
-table(pred)
-
-
-
 install.packages("caret")
-
 require(caret)
 
 classes <- images[, "mark"]
-
 predictors <- images[, -match(c("id", "mark"), colnames(images))]
 
 train_set <- createDataPartition(classes, p = 0.8, list = FALSE)
-
 str(train_set)
 
 train_predictors <- predictors[train_set, ]
@@ -100,58 +92,62 @@ train_classes <- classes[train_set]
 test_predictors <- predictors[-train_set, ]
 test_classes <- classes[-train_set]
 
-help(createFolds)
 
 
-cv_splits <- createFolds(classes, k = 10, returnTrain = TRUE)
 
-index = unlist( cv_splits[1] )
-
+index = unlist(cv_splits[1])
 train_predictors <- predictors[ index , ]
 train_classes <- classes[index]
-
 train = cbind(train_predictors, train_classes)
 test_predictors = predictors[ -index, ]
 test_classes = classes[-index]
-
 test = cbind(test_predictors, test_classes)
 
-fit <- rpart(train_classes ~ correlation + intersection + chisquare + bhattacharyya,
-             method="class", data=train)
+fit <- rpart(train_classes ~ correlation + intersection + chisquare + bhattacharyya, method="class", data=train)
 
-pred = predict(fit, newdata =  test_predictors, type = c("vector"))
+pred = predict(fit, newdata =  test_predictors, type = "class")
 
-as.numeric(pred)
+factor(pred)
 
-pred_data = cbind(id = as.numeric( rownames(as.matrix( pred )) ), pred = as.numeric(as.matrix( pred )[,1]) )
-pred_real = cbind(id = as.numeric( rownames(as.matrix( pred )) ), pred = as.numeric(test_classes) ) 
+levels(pred) <- levels(test_classes)
+d <- pred
+d[names(pred)] <- test_classes
+levels(d)
 
-confusionMatrix( table( as.numeric(pred) ,  test_classes) )
+table( pred, d )
+confusionMatrix( pred, test_classes)
 
 
-
-typeof(pred)
-
-levels(colnames(pred[1])
-
-str(pred)
-dim(test)
-
-table(pred, test_classes )
-
-as.vector(pred)
-as.matrix(pred)
-
-cbind(length(test_classes), length( as.numeric(pred))
-as.data.frame(pred)[1,1]
-
-confusionMatrix(pred, pred )
-help(predict)
-
-predictors[ -index , ]
-
-str(cv_splits)
+install.packages("C50")
+library(C50)
 
 
 
+summary(info)
+plot(info)
+
+acc <- matrix(NA,nrow=1,ncol=10)
+folds <- createFolds(classes, k = 10, returnTrain = TRUE)
+
+for(i in 1:10){
+  index = unlist(folds[i])
+  train_predictors <- predictors[index, ]
+  train_classes <- classes[index]
+  train = cbind(train_predictors, train_classes)
+  test_predictors = predictors[ -index, ]
+  test_classes = classes[-index]
+  test = cbind(test_predictors, test_classes)
+  
+  # fit <- rpart(train_classes ~ correlation + intersection + chisquare + bhattacharyya, method="class", data=train)
+  
+  fit  = C5.0(train_classes ~ correlation + intersection + chisquare + bhattacharyya, data = train, trials=3)
+  
+  pred = predict(fit, newdata =  test_predictors, type = "class")  
+  con = confusionMatrix( pred, test_classes)
+  acc[1, i] = con$overall['Accuracy']
+}
+
+psych::describe( as.numeric(acc))
+boxplot( as.numeric(acc))
+rowMeans(acc)
 
